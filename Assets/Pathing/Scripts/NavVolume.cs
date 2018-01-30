@@ -16,8 +16,13 @@ public class NavVolume : MonoBehaviour
 	private float nodeSpacing = 1.0f;
 	[SerializeField]
 	private Vector3 agentSize = new Vector3(1, 3, 1);
+
+	[SerializeField]
+	private bool useDijkstra = false;
 	[SerializeField]
 	private float agentJumpHeight = 1.0f;
+
+
 
 
 
@@ -141,7 +146,7 @@ public class NavVolume : MonoBehaviour
 
 
 		// Add the source node
-		source.heristicCost = target.Distance(source);
+		source.heuristicCost = useDijkstra ? 0 : target.Distance(source);
 		source.travelCost = 0;
         openNodes.Add(source);
 
@@ -153,7 +158,10 @@ public class NavVolume : MonoBehaviour
 			NavNode current = openNodes[0];
 			for (int i = 1; i < openNodes.Count; ++i)
 			{
-				if (openNodes[i].totalCost < current.totalCost)
+				float a = openNodes[i].totalCost;
+				float b = current.totalCost;
+
+				if (a < b || (a == b && openNodes[i].travelCost < current.travelCost))
 					current = openNodes[i];
 			}
 
@@ -189,13 +197,13 @@ public class NavVolume : MonoBehaviour
 				// Check to see if this path is faster for open nodes
 				if (openNodes.Contains(neighbour))
 				{
-					float h = target.Distance(neighbour);
-					float g = current.Distance(neighbour) + current.travelCost;
+					float h = useDijkstra ? 0 : target.Distance(neighbour);
+					float g = current.Distance(neighbour) + current.totalCost;
 
 					// New route is better
 					if (neighbour.totalCost > h + g)
 					{
-						neighbour.heristicCost = h;
+						neighbour.heuristicCost = h;
 						neighbour.travelCost = g;
 
 						openNodes.Add(neighbour);
@@ -207,8 +215,8 @@ public class NavVolume : MonoBehaviour
 				else
 				{
 					// Workout it's values
-					neighbour.heristicCost = target.Distance(neighbour);
-					neighbour.travelCost = current.Distance(neighbour) + current.travelCost;
+					neighbour.heuristicCost = useDijkstra ? 0 : target.Distance(neighbour);
+					neighbour.travelCost = current.Distance(neighbour) + current.totalCost;
 
 					openNodes.Add(neighbour);
 					cameFromTable[neighbour.id] = current;

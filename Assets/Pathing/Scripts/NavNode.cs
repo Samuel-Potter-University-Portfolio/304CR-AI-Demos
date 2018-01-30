@@ -15,8 +15,8 @@ public class NavNode
 	public readonly NavNode[] paths;
 
 
-	public float totalCost { get { return heristicCost + travelCost; } }
-	public float heristicCost; // h cost
+	public float totalCost { get { return heuristicCost + travelCost; } }
+	public float heuristicCost; // h cost
 	public float travelCost; // g cost
 
 
@@ -30,6 +30,6 @@ public class NavNode
 
 	public float Distance(NavNode target)
 	{
-		return Vector2.Distance(location, target.location);
+		return Vector3.Distance(location, target.location);
 	}
 }
