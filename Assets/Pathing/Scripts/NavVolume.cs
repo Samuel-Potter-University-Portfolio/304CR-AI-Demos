@@ -22,11 +22,9 @@ public class NavVolume : MonoBehaviour
 	[SerializeField]
 	private float agentJumpHeight = 1.0f;
 
-
-
-
-
+	[SerializeField, HideInInspector]
 	private List<NavNode> nodes = new List<NavNode>();
+
 
 
 	// TODO - REMOVE
@@ -41,11 +39,14 @@ public class NavVolume : MonoBehaviour
 		if (rebuild)
 		{
 			PlaceNodes();
-			rebuild = false;
+			Debug.Log (nodes.Count + " nodes.");
+			BakePaths();
+			Debug.Log ("Paths baked.");
 
 			// Test Path
 			CalculatePath(GetClosestNode(testStart), GetClosestNode(testEnd), out testPath);
 			Debug.Log("Test path len: " + (testPath == null ? -1 : testPath.Count));
+			rebuild = false;
         }
 	}
 
@@ -59,16 +60,18 @@ public class NavVolume : MonoBehaviour
 		Bounds bounds = globalBounds;
 
 		// Temporarily store nodes in grid, to create neighbours
-		Vector3Int gridSize = new Vector3Int((int)(bounds.size.x / nodeSpacing), (int)(bounds.size.y / nodeSpacing), (int)(bounds.size.z / nodeSpacing));
-		NavNode[,,] grid = new NavNode[gridSize.x, gridSize.y, gridSize.z];
+		int gridSizeX = (int)(bounds.size.x / nodeSpacing);
+		int gridSizeY = (int)(bounds.size.y / nodeSpacing);
+		int gridSizeZ = (int)(bounds.size.z / nodeSpacing);
+		NavNode[,,] grid = new NavNode[gridSizeX, gridSizeY, gridSizeZ];
 		
 
 		// Create nodes
 		nodes.Clear();
 
-		for (int x = 0; x < gridSize.x; ++x)
-			for (int y = 0; y < gridSize.y; ++y)
-				for (int z = 0; z < gridSize.z; ++z)
+		for (int x = 0; x < gridSizeX; ++x)
+			for (int y = 0; y < gridSizeY; ++y)
+				for (int z = 0; z < gridSizeZ; ++z)
 				{
 					Vector3 loc = bounds.min + new Vector3(x, y, z) * nodeSpacing;
 					RaycastHit hit;
@@ -91,14 +94,14 @@ public class NavVolume : MonoBehaviour
 
 
 		// Create links between neighbours
-		for (int x = 0; x < gridSize.x; ++x)
-			for (int y = 0; y < gridSize.y; ++y)
-				for (int z = 0; z < gridSize.z; ++z)
+		for (int x = 0; x < gridSizeX; ++x)
+			for (int y = 0; y < gridSizeY; ++y)
+				for (int z = 0; z < gridSizeZ; ++z)
 				{
 					if (grid[x, y, z] == null)
 						continue;
 
-					List<NavNode> neighbours = grid[x, y, z].neighbours;
+					List<int> neighbours = grid[x, y, z].neighbours;
 
 					for (int dx = -1; dx <= 1; ++dx)
 						for (int dy = -1; dy <= 2; ++dy) // Check extra for y (Might be able to jump)
@@ -113,7 +116,7 @@ public class NavVolume : MonoBehaviour
 								int cz = z + dz;
 
 								// Invalid check
-								if (cx < 0 || cx >= gridSize.x || cy < 0 || cy >= gridSize.y || cz < 0 || cz >= gridSize.z)
+								if (cx < 0 || cx >= gridSizeX || cy < 0 || cy >= gridSizeY || cz < 0 || cz >= gridSizeZ)
 									continue;
 
 								// Cell is valid
@@ -126,16 +129,61 @@ public class NavVolume : MonoBehaviour
 									diff.z = Mathf.Abs(diff.z);
 
 									if(diff.y < agentJumpHeight)
-										neighbours.Add(grid[cx, cy, cz]);
+										neighbours.Add(grid[cx, cy, cz].id);
 								}
                             }
                 }
 
 	}
 
+	/// <summary>
+	/// For each node will calculate the desired next step in order to reach every other node
+	/// </summary>
 	void BakePaths()
 	{
-		
+		// Reset all paths
+		foreach(NavNode node in nodes)
+			node.paths = new NavStep[nodes.Count];
+
+		// Cache best paths
+		foreach (NavNode a in nodes)
+			foreach (NavNode b in nodes) 
+			{
+				// Ignore self
+				if (a == b)
+				{
+					NavStep step = new NavStep ();
+					step.pathExists = false;
+					a.paths [b.id] = step;
+				}
+
+
+				// Path from a -> b already found in previous check
+				if (a.paths[b.id] != null)
+					continue;
+
+
+				List<NavNode> path;
+				if (CalculatePath (a, b, out path)) 
+				{
+					// Store best steps throughout path
+					for (int i = 0; i < path.Count - 1; ++i) 
+					{
+						NavStep step = new NavStep();
+						step.node = path[i + 1].id;
+						step.pathExists = true;
+						path[i].paths [path [i + 1].id] = step;
+					}
+				} 
+
+				// No path found
+				else 
+				{
+					NavStep step = new NavStep ();
+					step.pathExists = false;
+					a.paths [b.id] = step;
+				}
+			}
 	}
 
 	bool CalculatePath(NavNode source, NavNode target, out List<NavNode> outPath)
@@ -188,8 +236,10 @@ public class NavVolume : MonoBehaviour
 
 
 			// Add neighbours
-			foreach (NavNode neighbour in current.neighbours)
+			foreach (int neighbourId in current.neighbours)
 			{
+				NavNode neighbour = nodes[neighbourId];
+
 				// Ignore locked nodes
 				if (closedNodes.Contains(neighbour))
 					continue;
@@ -273,10 +323,10 @@ public class NavVolume : MonoBehaviour
 				Gizmos.DrawSphere(c.location, 0.1f);
 
 				// Draw connections
-				foreach (NavNode n in c.neighbours)
+				foreach (int n in c.neighbours)
 				{
-					if (n.id < c.id)
-						Gizmos.DrawLine(n.location, c.location);
+					if (nodes[n].id < c.id)
+						Gizmos.DrawLine(nodes[n].location, c.location);
 				}
             }
 		}

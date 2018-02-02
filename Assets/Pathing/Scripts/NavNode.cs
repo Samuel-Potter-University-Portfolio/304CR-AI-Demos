@@ -3,20 +3,36 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
+[System.Serializable]
+public class NavStep
+{
+	public bool pathExists;
+	public int node;
+}
+
+
+[System.Serializable]
 public class NavNode
 {
-	public readonly int id;
-	public readonly Vector3 location;
-	public readonly List<NavNode> neighbours;
+	[SerializeField]
+	public int id;
+	[SerializeField]
+	public Vector3 location;
+	[SerializeField]
+	public List<int> neighbours;
 
 	/// <summary>
 	/// Holds the next node to travel to when attempting to reach a specific target node
 	/// </summary>
-	public readonly NavNode[] paths;
+	[SerializeField]
+	public NavStep[] paths;
 
 
 	public float totalCost { get { return heuristicCost + travelCost; } }
+
+	[System.NonSerialized]
 	public float heuristicCost; // h cost
+	[System.NonSerialized]
 	public float travelCost; // g cost
 
 
@@ -24,7 +40,7 @@ public class NavNode
 	{
 		this.id = id;
 		this.location = location;
-		neighbours = new List<NavNode>();
+		neighbours = new List<int>();
     }
 
 
